@@ -17,6 +17,9 @@
   let targetIsVisible = false;
   let sceneRevision = 0;
   const animationFrames = new WeakMap();
+  const transitionFrames = new WeakMap();
+  const activeExitClones = new Map();
+  const restartButton = document.querySelector('#restart-button');
 
   function setHint(message) {
     if (hintEl && typeof message === 'string') hintEl.textContent = message;
@@ -105,6 +108,7 @@
 
   function disposeNodeMesh(node) {
     stopAnimation(node);
+    stopTransition(node);
     const mesh = node.getObject3D('mesh');
     if (mesh) {
       node.removeObject3D('mesh');
@@ -122,13 +126,18 @@
     node.setAttribute('visible', false);
   }
 
-  function setMaterialsOpacity(node, opacity) {
+  // La opacidad se aplica como un multiplicador para conservar la transparencia
+  // propia de cada material (por ejemplo, el fondo negro semitransparente del texto).
+  function setMaterialsOpacity(node, factor) {
     node.object3D.traverse((part) => {
       if (!part.material) return;
       const materials = Array.isArray(part.material) ? part.material : [part.material];
       materials.forEach((material) => {
+        if (material.userData.webarBaseOpacity === undefined) {
+          material.userData.webarBaseOpacity = material.opacity;
+        }
         material.transparent = true;
-        material.opacity = opacity;
+        material.opacity = clamp(material.userData.webarBaseOpacity * factor, 0, 1);
         material.needsUpdate = true;
       });
     });
@@ -140,14 +149,20 @@
     animationFrames.delete(node);
   }
 
-  function animateNode(node, mode, duration, basePosition, baseOpacity) {
+  function stopTransition(node) {
+    const oldFrame = transitionFrames.get(node);
+    if (oldFrame) cancelAnimationFrame(oldFrame);
+    transitionFrames.delete(node);
+  }
+
+  function animateNode(node, mode, duration, basePosition) {
     stopAnimation(node);
     const object = node.object3D;
     const pos = { x: basePosition.x, y: basePosition.y, z: basePosition.z };
     const time = Math.max(0, safeNumber(duration, 700));
     object.position.set(pos.x, pos.y, pos.z);
     object.scale.set(1, 1, 1);
-    setMaterialsOpacity(node, baseOpacity);
+    setMaterialsOpacity(node, 1);
 
     if (mode === 'none' || time === 0) return;
 
@@ -164,7 +179,7 @@
       }
       const progress = clamp((now - startedAt) / time, 0, 1);
       const eased = easeOut(progress);
-      if (mode === 'fade') setMaterialsOpacity(node, baseOpacity * eased);
+      if (mode === 'fade') setMaterialsOpacity(node, eased);
       if (mode === 'pop') {
         const back = 1 + 1.35 * Math.pow(progress - 1, 3) + 0.35 * Math.pow(progress - 1, 2);
         const scale = progress === 1 ? 1 : Math.max(0.02, back);
@@ -181,11 +196,99 @@
       } else {
         object.position.set(pos.x, pos.y, pos.z);
         if (mode === 'pop') object.scale.set(1, 1, 1);
-        if (mode === 'fade') setMaterialsOpacity(node, baseOpacity);
+        if (mode === 'fade') setMaterialsOpacity(node, 1);
         animationFrames.delete(node);
       }
     };
     animationFrames.set(node, requestAnimationFrame(step));
+  }
+
+  const TRANSITION_MS = 650;
+
+  function disposeClonedObject(object) {
+    object.traverse((part) => {
+      if (part.geometry && typeof part.geometry.dispose === 'function') part.geometry.dispose();
+      if (!part.material) return;
+      const materials = Array.isArray(part.material) ? part.material : [part.material];
+      materials.forEach((material) => {
+        if (material.map && typeof material.map.dispose === 'function') material.map.dispose();
+        if (typeof material.dispose === 'function') material.dispose();
+      });
+    });
+  }
+
+  // Copia la escena que está saliendo para poder desvanecerla mientras aparece la nueva.
+  // Se duplican geometrías, materiales y texturas para que borrar la escena anterior
+  // no interrumpa la animación de salida.
+  function fadeOutNodeClone(node) {
+    const sourceMesh = node.getObject3D('mesh');
+    if (!sourceMesh || node.getAttribute('visible') === false) return;
+
+    const clone = node.object3D.clone(true);
+    const materials = [];
+    clone.traverse((part) => {
+      if (!part.isMesh) return;
+      // Dibujar la capa saliente antes de la entrante permite que ambas se mezclen
+      // durante el fundido, en vez de que la anterior tape por completo a la nueva.
+      if (Number.isFinite(part.renderOrder)) part.renderOrder -= 0.1;
+      if (part.geometry && typeof part.geometry.clone === 'function') part.geometry = part.geometry.clone();
+      const originals = Array.isArray(part.material) ? part.material : [part.material];
+      const copies = originals.map((original) => {
+        const material = original.clone();
+        if (original.map && typeof original.map.clone === 'function') {
+          material.map = original.map.clone();
+          material.map.needsUpdate = true;
+        }
+        material.transparent = true;
+        material.depthWrite = false;
+        material.userData.webarBaseOpacity = material.opacity;
+        materials.push({ material, startOpacity: material.opacity });
+        return material;
+      });
+      part.material = Array.isArray(part.material) ? copies : copies[0];
+    });
+
+    targetEl.object3D.add(clone);
+    const startedAt = performance.now();
+    const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const step = (now) => {
+      const progress = clamp((now - startedAt) / TRANSITION_MS, 0, 1);
+      const factor = 1 - easeInOut(progress);
+      materials.forEach(({ material, startOpacity }) => {
+        material.opacity = startOpacity * factor;
+        material.needsUpdate = true;
+      });
+      if (progress < 1) {
+        activeExitClones.set(clone, requestAnimationFrame(step));
+      } else {
+        activeExitClones.delete(clone);
+        if (clone.parent) clone.parent.remove(clone);
+        disposeClonedObject(clone);
+      }
+    };
+    activeExitClones.set(clone, requestAnimationFrame(step));
+  }
+
+  function fadeInNode(node, duration = TRANSITION_MS) {
+    stopTransition(node);
+    const time = Math.max(1, safeNumber(duration, TRANSITION_MS));
+    const startedAt = performance.now();
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    setMaterialsOpacity(node, 0);
+    const step = (now) => {
+      if (!node.isConnected) {
+        transitionFrames.delete(node);
+        return;
+      }
+      const progress = clamp((now - startedAt) / time, 0, 1);
+      setMaterialsOpacity(node, easeOut(progress));
+      if (progress < 1) transitionFrames.set(node, requestAnimationFrame(step));
+      else {
+        setMaterialsOpacity(node, 1);
+        transitionFrames.delete(node);
+      }
+    };
+    transitionFrames.set(node, requestAnimationFrame(step));
   }
 
   async function loadCustomFonts() {
@@ -213,8 +316,12 @@
     return path;
   }
 
-  function renderScene(index) {
+  function renderScene(index, options = {}) {
     if (!config) return;
+    if (options.transition) {
+      fadeOutNodeClone(artNode);
+      fadeOutNodeClone(textNode);
+    }
     currentSceneIndex = clamp(index, 0, config.scenes.length - 1);
     sceneRevision += 1;
     const thisRevision = sceneRevision;
@@ -253,13 +360,16 @@
             transparent: true,
             opacity: scene.image.opacity,
             side: THREE.DoubleSide,
-            depthWrite: false
+            depthWrite: false,
+            toneMapped: false
           });
+          material.userData.webarBaseOpacity = scene.image.opacity;
           const mesh = new THREE.Mesh(geometry, material);
           mesh.renderOrder = 2;
           artNode.setObject3D('mesh', mesh);
           artNode.setAttribute('visible', true);
-          animateNode(artNode, scene.image.animation, scene.image.durationMs, scene.image, scene.image.opacity);
+          animateNode(artNode, scene.image.animation, scene.image.durationMs, scene.image);
+          if (options.transition) fadeInNode(artNode);
         },
         undefined,
         (error) => {
@@ -332,12 +442,42 @@
       else if ('encoding' in texture && THREE.sRGBEncoding) texture.encoding = THREE.sRGBEncoding;
       texture.needsUpdate = true;
       const geometry = new THREE.PlaneGeometry(scene.text.width, scene.text.height);
-      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false });
+      // Fondo negro semitransparente detrás del texto. Al formar parte del mismo
+      // grupo que la tipografía, acompaña exactamente su posición y su animación.
+      const textGroup = new THREE.Group();
+      const backgroundGeometry = new THREE.PlaneGeometry(scene.text.width * 1.045, scene.text.height * 1.12);
+      const backgroundMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.56,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: false,
+        toneMapped: false
+      });
+      backgroundMaterial.userData.webarBaseOpacity = 0.56;
+      const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+      backgroundMesh.position.z = 0;
+      backgroundMesh.renderOrder = 2.5;
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: false,
+        toneMapped: false
+      });
+      material.userData.webarBaseOpacity = 1;
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.z = 0.002;
       mesh.renderOrder = 3;
-      textNode.setObject3D('mesh', mesh);
+      textGroup.add(backgroundMesh);
+      textGroup.add(mesh);
+      textNode.setObject3D('mesh', textGroup);
       textNode.setAttribute('visible', true);
-      animateNode(textNode, scene.text.animation, scene.text.durationMs, scene.text, 1);
+      animateNode(textNode, scene.text.animation, scene.text.durationMs, scene.text);
+      if (options.transition) fadeInNode(textNode);
     } else {
       textNode.setAttribute('visible', false);
     }
@@ -348,19 +488,22 @@
   function updateHint() {
     if (!config) return;
     if (!targetIsVisible) {
+      if (restartButton) restartButton.hidden = true;
       setHint(config.interface.notFoundPrompt);
       return;
     }
     if (currentSceneIndex >= config.scenes.length - 1) {
       setHint(config.interface.finalPrompt);
+      if (restartButton) restartButton.hidden = false;
       return;
     }
+    if (restartButton) restartButton.hidden = true;
     setHint(config.interface.continuePrompt);
   }
 
   function nextScene() {
     if (!targetIsVisible || !config) return;
-    if (currentSceneIndex < config.scenes.length - 1) renderScene(currentSceneIndex + 1);
+    if (currentSceneIndex < config.scenes.length - 1) renderScene(currentSceneIndex + 1, { transition: true });
     else updateHint();
   }
 
@@ -458,10 +601,28 @@
     nextScene();
   });
 
+  if (restartButton) {
+    restartButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!config || !targetIsVisible) return;
+      renderScene(0, { transition: true });
+      updateHint();
+    });
+  }
+
   window.addEventListener('pagehide', () => {
     // Los bucles de animación son de corta duración, excepto 'float'; cancelar el de cada entidad.
     stopAnimation(artNode);
     stopAnimation(textNode);
+    stopTransition(artNode);
+    stopTransition(textNode);
+    activeExitClones.forEach((frame, clone) => {
+      cancelAnimationFrame(frame);
+      if (clone.parent) clone.parent.remove(clone);
+      disposeClonedObject(clone);
+    });
+    activeExitClones.clear();
   });
 
   startExperience();
