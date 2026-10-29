@@ -187,10 +187,11 @@ Para la primera versión, no hace falta cambiar `app.js` ni `index.html`. Comple
 - [A-Frame: documentación](https://aframe.io/docs/) — estructura de la escena 3D.
 
 
-## Revisión de esta entrega
+## Ajustes de esta versión
 
-Se conservaron tus cinco ilustraciones PNG, el archivo `targets/poster.mind`, los textos, las posiciones, los tamaños y las elecciones de animación.
+- **Cámara visible:** se fuerza el fondo transparente del renderer WebGL y se ajusta el orden de capas para que el vídeo de la cámara quede detrás de las ilustraciones y los textos.
+- **Movimiento unificado:** las imágenes y los textos de las cinco escenas usan el movimiento suave de flotación de la escena 1. El ciclo ahora dura 6 segundos, cuatro veces más lento que antes. La amplitud del movimiento se mantiene.
+- **Contraste de textos:** todos los textos se dibujan en blanco con un contorno negro fino, independientemente del color anterior guardado en la configuración.
+- **Visibilidad:** se fuerza la opacidad del texto a 1 en las cinco escenas para evitar textos invisibles por una configuración previa.
 
-Se corrigió un detalle en la escena 1: el texto tenía `opacity: 0`, lo que lo hacía completamente invisible aunque tuviera contenido. Ahora tiene opacidad 1. También se ajustó el editor para que la vista previa respete la opacidad configurada tanto en las ilustraciones como en los textos.
-
-La vista previa del editor sirve para revisar la composición, pero no reproduce exactamente la perspectiva, la escala aparente ni el rendimiento de la cámara del celular. Después de publicar el proyecto, conviene comprobar cada escena apuntando al afiche real.
+Tras reemplazar los archivos en GitHub, esperá a que GitHub Pages termine de publicar y recargá la experiencia en el celular. Si el navegador conserva la versión anterior, cerrá la pestaña y volvé a abrir el enlace.
