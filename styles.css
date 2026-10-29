@@ -1,12 +1,12 @@
 :root {
   color-scheme: dark;
   font-family: Arial, Helvetica, sans-serif;
-  background: #111;
+  background: transparent !important;
 }
 
 * { box-sizing: border-box; }
-html, body, #ar-app { width: 100%; height: 100%; min-height: 100%; margin: 0; overflow: hidden; }
-body { background: #111; overscroll-behavior: none; }
+html, body, #ar-app { width: 100%; height: 100%; min-height: 100%; margin: 0; overflow: hidden; background: transparent !important; }
+body { background: transparent !important; overscroll-behavior: none; }
 
 /* La escena ocupa la pantalla; el fondo no dibuja un rectángulo negro sobre la cámara. */
 a-scene {
@@ -15,8 +15,21 @@ a-scene {
   width: 100% !important;
   height: 100% !important;
   z-index: 1;
+  background: transparent !important;
 }
-a-scene .a-canvas { position: absolute !important; inset: 0 !important; }
+/* MindAR crea un <video> para la cámara. Lo ponemos delante del fondo del documento,
+   pero detrás del canvas 3D, que debe ser realmente transparente. */
+body > video, #ar-app > video, video.mindar-video {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  object-fit: cover !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+}
+a-scene .a-canvas { position: absolute !important; inset: 0 !important; z-index: 1 !important; background: transparent !important; }
 
 .camera-hint {
   position: fixed;
