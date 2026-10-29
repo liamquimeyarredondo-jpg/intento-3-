@@ -1,0 +1,5 @@
+FUENTES PERSONALIZADAS (OPCIONAL)
+
+Esta carpeta queda reservada para archivos de fuentes web como .woff2 o .woff. Para registrarlas, abrí editor.html, cargá config.json y usá el panel “Tipografías personalizadas”. Indicá el nombre de la familia y la ruta, por ejemplo assets/fonts/mi-tipografia.woff2, y descargá el nuevo config.json.
+
+El archivo de la fuente no se copia automáticamente: ponelo en esta carpeta y confirmá que la ruta coincida. Revisá los permisos de uso web de la fuente.

@@ -1,0 +1,81 @@
+:root {
+  color-scheme: dark;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #111;
+}
+
+* { box-sizing: border-box; }
+html, body, #ar-app { width: 100%; height: 100%; min-height: 100%; margin: 0; overflow: hidden; }
+body { background: #111; overscroll-behavior: none; }
+
+/* La escena ocupa la pantalla; el fondo no dibuja un rectángulo negro sobre la cámara. */
+a-scene {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1;
+}
+a-scene .a-canvas { position: absolute !important; inset: 0 !important; }
+
+.camera-hint {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 8px 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+
+.setup-notice {
+  position: fixed;
+  z-index: 40;
+  top: max(16px, env(safe-area-inset-top));
+  left: 14px;
+  right: 14px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 13px 15px;
+  color: #fff;
+  background: rgba(36, 33, 25, 0.94);
+  border: 1px solid rgba(255, 213, 119, 0.7);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+.setup-notice[hidden] { display: none; }
+
+.rotate-notice { display: none; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .rotate-notice {
+    display: block;
+    position: fixed;
+    z-index: 30;
+    top: max(10px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 24px);
+    width: max-content;
+    padding: 7px 10px;
+    border-radius: 8px;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    font-size: 12px;
+    text-align: center;
+    pointer-events: none;
+  }
+}

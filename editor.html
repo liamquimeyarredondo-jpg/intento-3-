@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor visual · WebAR</title>
+  <style>
+    :root { color-scheme: light; --ink:#202124; --muted:#5f6368; --line:#d9dce1; --panel:#fff; --bg:#f4f5f7; --accent:#2f5f91; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:var(--bg); line-height:1.45; }
+    header { background:#18212b; color:#fff; padding:22px max(18px,calc((100vw - 1200px)/2)); }
+    header h1 { font-size:22px; margin:0 0 5px; font-weight:700; }
+    header p { margin:0; color:#d9e1e8; font-size:14px; }
+    main { max-width:1200px; margin:0 auto; padding:18px; }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px; margin-bottom:16px; border:1px solid var(--line); background:var(--panel); border-radius:12px; }
+    button,.file-label { border:0; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:700; cursor:pointer; background:var(--accent); color:white; display:inline-flex; align-items:center; justify-content:center; }
+    button.secondary,.file-label.secondary { color:var(--ink); background:#e9edf1; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    #config-file { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+    #load-state { flex:1 1 260px; color:var(--muted); font-size:13px; }
+    .layout { display:grid; grid-template-columns:minmax(300px, 1fr) minmax(300px, 390px); gap:16px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+    .panel h2 { margin:0 0 14px; font-size:17px; }
+    .panel h3 { margin:18px 0 10px; padding-top:14px; border-top:1px solid var(--line); font-size:14px; }
+    .panel h3:first-of-type { margin-top:0; padding-top:0; border-top:0; }
+    .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .field { min-width:0; display:flex; flex-direction:column; gap:5px; }
+    .field.full { grid-column:1/-1; }
+    label { font-size:12px; font-weight:700; color:#35383d; }
+    input,select,textarea { width:100%; min-width:0; border:1px solid #bfc5cc; border-radius:7px; background:#fff; color:#202124; padding:9px 10px; font:14px Arial,Helvetica,sans-serif; }
+    textarea { min-height:96px; resize:vertical; }
+    input[type="color"] { padding:3px; min-height:38px; }
+    .help { font-size:12px; color:var(--muted); margin:8px 0 0; }
+    .scene-picker { display:flex; gap:7px; margin-bottom:14px; flex-wrap:wrap; }
+    .scene-picker button { flex:1 1 70px; background:#e9edf1; color:#24272b; padding:9px 7px; }
+    .scene-picker button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+    .preview-panel { position:sticky; top:12px; }
+    .preview-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    .preview-head .help { margin:0; text-align:right; }
+    .stage-wrap { display:flex; justify-content:center; padding:12px 0 8px; }
+    .stage { width:min(100%,340px); position:relative; aspect-ratio:1 / 1.414; border:2px dashed #929aa3; background:linear-gradient(135deg,rgba(128,140,152,.07) 25%,transparent 25%) 0 0/16px 16px,linear-gradient(135deg,transparent 75%,rgba(128,140,152,.07) 75%) 0 0/16px 16px,#fbfcfd; overflow:hidden; touch-action:none; }
+    .stage::before { content:'ÁREA DEL AFICHE · VISTA DE REFERENCIA'; position:absolute; left:0; right:0; top:5px; text-align:center; font-size:8px; letter-spacing:.08em; color:#7c858f; pointer-events:none; z-index:0; }
+    .preview-item { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; touch-action:none; user-select:none; cursor:move; }
+    .preview-art { outline:1px dashed #5984b5; background:rgba(89,132,181,.06); color:#476889; font-size:10px; text-align:center; padding:5px; overflow:hidden; }
+    .preview-art img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+    .preview-text { white-space:pre-wrap; overflow:hidden; line-height:1.2; outline:1px dashed #bd8b45; background:rgba(255,245,220,.15); padding:3px; text-align:center; overflow-wrap:anywhere; }
+    .stage-note { color:var(--muted); font-size:12px; margin:8px 0 0; }
+    .notice { margin:0 0 14px; padding:11px 13px; border-radius:8px; background:#fff6dd; border:1px solid #e8cd7d; font-size:13px; color:#51431b; }
+    .notice[hidden] { display:none; }
+    .footer-note { font-size:12px; color:var(--muted); margin-top:14px; }
+    @media (max-width:800px) { .layout { grid-template-columns:1fr; } .preview-panel { position:static; grid-row:1; } }
+    @media (max-width:480px) { main { padding:10px; } .panel { padding:12px; } .field-grid { gap:10px; } .stage { width:min(100%,320px); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Editor visual del proyecto WebAR</h1>
+    <p>Configurá las cinco escenas, mové los elementos en la vista previa y exportá el archivo de configuración.</p>
+  </header>
+  <main>
+    <div class="toolbar">
+      <label class="file-label" for="config-file">Abrir config.json</label>
+      <input id="config-file" type="file" accept=".json,application/json">
+      <button id="download-config" disabled>Descargar config.json</button>
+      <button id="reload-config" class="secondary" disabled>Descartar cambios</button>
+      <div id="load-state">Primero cargá el archivo config.json que está en la carpeta principal del proyecto.</div>
+    </div>
+    <div id="editor-notice" class="notice">Este editor no modifica el archivo original de forma automática. Al terminar, descargá el nuevo config.json y reemplazá el anterior dentro de la carpeta del proyecto.</div>
+
+    <div class="layout">
+      <section>
+        <div class="panel">
+          <h2>Escena a editar</h2>
+          <div class="scene-picker" id="scene-picker" aria-label="Elegir escena">
+            <button type="button" data-scene="0" aria-pressed="true">1</button>
+            <button type="button" data-scene="1" aria-pressed="false">2</button>
+            <button type="button" data-scene="2" aria-pressed="false">3</button>
+            <button type="button" data-scene="3" aria-pressed="false">4</button>
+            <button type="button" data-scene="4" aria-pressed="false">5</button>
+          </div>
+          <div class="field-grid">
+            <div class="field full"><label for="scene-label">Nombre de la escena (solo para organizarte)</label><input id="scene-label" data-group="scene" data-key="label" type="text" placeholder="Escena 1"></div>
+          </div>
+          <h3>Medidas del afiche de referencia</h3>
+          <div class="field-grid">
+            <div class="field"><label for="target-width">Ancho del afiche (unidades)</label><input id="target-width" data-group="target" data-key="width" type="number" min="0.1" step="0.01"></div>
+            <div class="field"><label for="target-height">Alto del afiche (unidades)</label><input id="target-height" data-group="target" data-key="height" type="number" min="0.1" step="0.01"></div>
+          </div>
+          <p class="help">Estas medidas sirven para calcular la superficie tocable y la vista previa. El ancho inicial es 1; el alto 1,414 corresponde aproximadamente a un A4 vertical. Si tu afiche tiene otra proporción, ajustalo.</p>
+        </div>
+
+        <div class="panel">
+          <h2>Ilustración PNG</h2>
+          <div class="field-grid">
+            <div class="field full"><label for="image-src">Ruta del PNG</label><input id="image-src" data-group="image" data-key="src" type="text" spellcheck="false" placeholder="assets/images/scene-01.png"></div>
+            <div class="field"><label for="image-x">Posición horizontal X</label><input id="image-x" data-group="image" data-key="x" type="number" step="0.01"></div>
+            <div class="field"><label for="image-y">Posición vertical Y</label><input id="image-y" data-group="image" data-key="y" type="number" step="0.01"></div>
+            <div class="field"><label for="image-z">Profundidad Z</label><input id="image-z" data-group="image" data-key="z" type="number" step="0.01"></div>
+            <div class="field"><label for="image-width">Ancho</label><input id="image-width" data-group="image" data-key="width" type="number" min="0.01" step="0.01"></div>
+            <div class="field"><label for="image-height">Alto (vacío = automático)</label><input id="image-height" data-group="image" data-key="height" type="number" min="0.01" step="0.01" placeholder="Automático"></div>
+            <div class="field"><label for="image-opacity">Opacidad (0–1)</label><input id="image-opacity" data-group="image" data-key="opacity" type="number" min="0" max="1" step="0.05"></div>
+            <div class="field"><label for="image-animation">Animación</label><select id="image-animation" data-group="image" data-key="animation"><option value="none">Sin animación</option><option value="fade">Aparecer gradualmente</option><option value="pop">Aparecer con escala</option><option value="slide-up">Subir y aparecer</option><option value="float">Flotar suavemente</option></select></div>
+            <div class="field"><label for="image-duration">Duración (milisegundos)</label><input id="image-duration" data-group="image" data-key="durationMs" type="number" min="0" max="10000" step="50"></div>
+          </div>
+          <p class="help">X mueve a izquierda/derecha; Y mueve arriba/abajo; Z cambia la distancia respecto del afiche. Un valor Z mayor sitúa el elemento más adelante. También podés arrastrar el marco de la ilustración en la vista previa.</p>
+        </div>
+
+        <div class="panel">
+          <h2>Tipografías personalizadas (opcional)</h2>
+          <p class="help">Si vas a usar una fuente que no está instalada en el celular, copiá su archivo web (.woff2 o .woff) a <code>assets/fonts</code> y registrala acá. Así la experiencia intenta cargarla al abrirse.</p>
+          <div class="field-grid" style="margin-top:12px">
+            <div class="field"><label for="custom-font-family">Nombre de la familia</label><input id="custom-font-family" type="text" placeholder="MiTipografia"></div>
+            <div class="field"><label for="custom-font-src">Ruta del archivo</label><input id="custom-font-src" type="text" placeholder="assets/fonts/mi-tipografia.woff2"></div>
+            <div class="field"><label for="custom-font-weight">Grosor incluido en el archivo</label><select id="custom-font-weight"><option value="normal">Normal (400)</option><option value="bold">Negrita (700)</option><option value="600">Seminegrita (600)</option><option value="800">Extra negrita (800)</option></select></div>
+            <div class="field"><label for="custom-font-style">Estilo</label><select id="custom-font-style"><option value="normal">Normal</option><option value="italic">Cursiva</option></select></div>
+            <div class="field full"><button type="button" class="secondary" id="add-custom-font">Agregar tipografía a la configuración</button></div>
+          </div>
+          <div id="custom-font-list" class="footer-note">Todavía no hay fuentes personalizadas registradas.</div>
+          <p class="help">Después de agregar la fuente, seleccioná o escribí ese mismo nombre en “Familia tipográfica”. El archivo de la fuente no se copia automáticamente: tiene que estar dentro de la carpeta del proyecto y tener la ruta indicada. Revisá también sus permisos de uso web.</p>
+        </div>
+
+        <div class="panel">
+          <h2>Texto de la escena</h2>
+          <div class="field-grid">
+            <div class="field full"><label for="text-content">Texto (Enter crea una nueva línea)</label><textarea id="text-content" data-group="text" data-key="content" placeholder="Escribí acá el texto de esta escena..."></textarea></div>
+            <div class="field full"><label for="text-font">Familia tipográfica</label><input id="text-font" data-group="text" data-key="fontFamily" list="font-options" placeholder="Arial"><datalist id="font-options"><option value="Arial"><option value="Helvetica"><option value="Verdana"><option value="Trebuchet MS"><option value="Georgia"><option value="Times New Roman"><option value="Courier New"><option value="Impact"><option value="sans-serif"><option value="serif"></datalist></div>
+            <div class="field"><label for="text-size">Tamaño tipográfico (px internos)</label><input id="text-size" data-group="text" data-key="fontSize" type="number" min="8" max="240" step="1"></div>
+            <div class="field"><label for="text-weight">Grosor</label><select id="text-weight" data-group="text" data-key="fontWeight"><option value="normal">Normal</option><option value="bold">Negrita</option><option value="600">Seminegrita (600)</option><option value="800">Extra negrita (800)</option></select></div>
+            <div class="field"><label for="text-color">Color</label><input id="text-color" data-group="text" data-key="color" type="color"></div>
+            <div class="field"><label for="text-align">Alineación horizontal</label><select id="text-align" data-group="text" data-key="align"><option value="left">Izquierda</option><option value="center">Centrada</option><option value="right">Derecha</option></select></div>
+            <div class="field"><label for="text-valign">Alineación vertical</label><select id="text-valign" data-group="text" data-key="verticalAlign"><option value="top">Arriba</option><option value="middle">Centro</option><option value="bottom">Abajo</option></select></div>
+            <div class="field"><label for="text-line-height">Interlineado (multiplicador)</label><input id="text-line-height" data-group="text" data-key="lineHeight" type="number" min="0.8" max="2.5" step="0.1"></div>
+            <div class="field"><label for="text-opacity">Opacidad (0–1)</label><input id="text-opacity" data-group="text" data-key="opacity" type="number" min="0" max="1" step="0.05"></div>
+            <div class="field"><label for="text-x">Posición horizontal X</label><input id="text-x" data-group="text" data-key="x" type="number" step="0.01"></div>
+            <div class="field"><label for="text-y">Posición vertical Y</label><input id="text-y" data-group="text" data-key="y" type="number" step="0.01"></div>
+            <div class="field"><label for="text-z">Profundidad Z</label><input id="text-z" data-group="text" data-key="z" type="number" step="0.01"></div>
+            <div class="field"><label for="text-width">Ancho del bloque</label><input id="text-width" data-group="text" data-key="width" type="number" min="0.05" step="0.01"></div>
+            <div class="field"><label for="text-height">Alto del bloque</label><input id="text-height" data-group="text" data-key="height" type="number" min="0.05" step="0.01"></div>
+            <div class="field"><label for="text-animation">Animación</label><select id="text-animation" data-group="text" data-key="animation"><option value="none">Sin animación</option><option value="fade">Aparecer gradualmente</option><option value="pop">Aparecer con escala</option><option value="slide-up">Subir y aparecer</option><option value="float">Flotar suavemente</option></select></div>
+            <div class="field"><label for="text-duration">Duración (milisegundos)</label><input id="text-duration" data-group="text" data-key="durationMs" type="number" min="0" max="10000" step="50"></div>
+          </div>
+          <p class="help">El tamaño se mide en píxeles de una textura interna que luego se coloca en el espacio AR. La vista previa intenta representar la proporción visual; el ajuste final se comprueba con el celular apuntando al afiche.</p>
+        </div>
+
+        <div class="panel">
+          <h2>Textos de ayuda en pantalla</h2>
+          <div class="field-grid">
+            <div class="field full"><label for="prompt-continue">Texto para continuar (escenas 1–4)</label><input id="prompt-continue" data-group="interface" data-key="continuePrompt" type="text"></div>
+            <div class="field full"><label for="prompt-final">Texto de la escena 5</label><input id="prompt-final" data-group="interface" data-key="finalPrompt" type="text"></div>
+            <div class="field full"><label for="prompt-lost">Texto cuando no se reconoce el afiche</label><input id="prompt-lost" data-group="interface" data-key="notFoundPrompt" type="text"></div>
+          </div>
+          <p class="help">Estos textos aparecen como una indicación discreta sobre la cámara, no forman parte de la ilustración.</p>
+        </div>
+      </section>
+
+      <aside class="panel preview-panel">
+        <div class="preview-head"><h2>Vista previa</h2><p class="help">Arrastrá los marcos</p></div>
+        <div class="stage-wrap"><div id="preview-stage" class="stage" aria-label="Vista previa de composición"></div></div>
+        <p class="stage-note">El contorno discontinuo representa el afiche y solo se ve en este editor. Los marcos señalados sirven para posicionar imágenes y texto que todavía no agregaste; no aparecen en la experiencia de realidad aumentada.</p>
+        <p class="stage-note">Las ilustraciones y los textos se colocan delante del afiche. Si un PNG tiene fondo transparente, esa transparencia se conserva en la experiencia.</p>
+      </aside>
+    </div>
+    <p class="footer-note">Editor local sin bibliotecas externas. Tus cambios se guardan al descargar el archivo JSON; el editor no sube imágenes ni textos a ningún servidor.</p>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      const fileInput = document.querySelector('#config-file');
+      const downloadButton = document.querySelector('#download-config');
+      const reloadButton = document.querySelector('#reload-config');
+      const loadState = document.querySelector('#load-state');
+      const notice = document.querySelector('#editor-notice');
+      const scenePicker = document.querySelector('#scene-picker');
+      const stage = document.querySelector('#preview-stage');
+      let config = null;
+      let originalText = '';
+      let selectedIndex = 0;
+      let dragCleanup = null;
+
+      const $ = (selector) => document.querySelector(selector);
+      const num = (value, fallback) => {
+        if (value === '' || value === null || value === undefined) return fallback;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      };
+      const getScene = () => config && config.scenes[selectedIndex];
+
+      function loadFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(String(reader.result));
+            if (!Array.isArray(parsed.scenes) || parsed.scenes.length !== 5) throw new Error('El archivo tiene que incluir exactamente cinco escenas.');
+            config = parsed;
+            config.project = config.project || {};
+            config.project.fonts = Array.isArray(config.project.fonts) ? config.project.fonts : [];
+            config.target = config.target || { width: 1, height: 1.414, index: 0 };
+            config.interface = config.interface || {};
+            config.scenes.forEach((s, i) => { s.label = s.label || `Escena ${i + 1}`; s.image = s.image || {}; s.text = s.text || {}; });
+            originalText = JSON.stringify(config, null, 2);
+            selectedIndex = 0;
+            downloadButton.disabled = false;
+            reloadButton.disabled = false;
+            loadState.textContent = `Configuración cargada: ${file.name}. Los cambios todavía no se guardaron en el proyecto.`;
+            notice.hidden = true;
+            renderControls();
+            renderFontManager();
+            renderPreview();
+          } catch (error) {
+            config = null;
+            downloadButton.disabled = true;
+            reloadButton.disabled = true;
+            loadState.textContent = 'No se pudo leer el archivo.';
+            notice.hidden = false;
+            notice.textContent = `No pude abrir el JSON: ${error.message}`;
+          }
+        };
+        reader.onerror = () => {
+          loadState.textContent = 'No se pudo leer el archivo seleccionado.';
+        };
+        reader.readAsText(file);
+      }
+
+      function setInputValue(group, key, value) {
+        const el = document.querySelector(`[data-group="${group}"][data-key="${key}"]`);
+        if (!el) return;
+        if (value === null || value === undefined) el.value = '';
+        else el.value = String(value);
+      }
+
+      function renderControls() {
+        if (!config) return;
+        const scene = getScene();
+        setInputValue('scene', 'label', scene.label || `Escena ${selectedIndex + 1}`);
+        setInputValue('target', 'width', config.target.width ?? 1);
+        setInputValue('target', 'height', config.target.height ?? 1.414);
+        setInputValue('image', 'src', scene.image.src ?? `assets/images/scene-0${selectedIndex + 1}.png`);
+        ['x','y','z','width','height','opacity','animation','durationMs'].forEach(k => setInputValue('image', k, scene.image[k]));
+        ['content','fontFamily','fontSize','fontWeight','color','align','verticalAlign','lineHeight','opacity','x','y','z','width','height','animation','durationMs'].forEach(k => setInputValue('text', k, scene.text[k]));
+        setInputValue('interface', 'continuePrompt', config.interface.continuePrompt ?? 'Pulse la imagen para continuar');
+        setInputValue('interface', 'finalPrompt', config.interface.finalPrompt ?? 'Fin de la experiencia');
+        setInputValue('interface', 'notFoundPrompt', config.interface.notFoundPrompt ?? 'Apuntá la cámara al afiche');
+        [...scenePicker.querySelectorAll('button')].forEach((button, i) => button.setAttribute('aria-pressed', String(i === selectedIndex)));
+        renderFontManager();
+      }
+
+      function renderFontManager() {
+        if (!config) return;
+        config.project = config.project || {};
+        config.project.fonts = Array.isArray(config.project.fonts) ? config.project.fonts : [];
+        const list = document.querySelector('#custom-font-list');
+        const datalist = document.querySelector('#font-options');
+        datalist.querySelectorAll('[data-custom-font="true"]').forEach((option) => option.remove());
+        config.project.fonts.forEach((font) => {
+          const option = document.createElement('option');
+          option.value = font.family;
+          option.dataset.customFont = 'true';
+          datalist.appendChild(option);
+        });
+        list.innerHTML = '';
+        if (!config.project.fonts.length) {
+          list.textContent = 'Todavía no hay fuentes personalizadas registradas.';
+          return;
+        }
+        config.project.fonts.forEach((font, index) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e5e8;';
+          const info = document.createElement('span');
+          info.textContent = `${font.family} · ${font.src} · ${font.weight || 'normal'} ${font.style || 'normal'}`;
+          info.style.cssText = 'overflow-wrap:anywhere;';
+          const remove = document.createElement('button');
+          remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Quitar';
+          remove.style.cssText = 'padding:6px 9px;flex:0 0 auto;';
+          remove.addEventListener('click', () => {
+            config.project.fonts.splice(index, 1);
+            renderFontManager();
+            renderPreview();
+          });
+          row.append(info, remove);
+          list.appendChild(row);
+        });
+      }
+
+      function updateFromInputs(event) {
+        if (!config) return;
+        const el = event.target;
+        const group = el.dataset.group;
+        const key = el.dataset.key;
+        if (!group || !key) return;
+        if (group === 'target') {
+          config.target[key] = Math.max(0.1, num(el.value, key === 'width' ? 1 : 1.414));
+        } else if (group === 'interface') {
+          config.interface[key] = el.value;
+        } else if (group === 'scene') {
+          getScene()[key] = el.value;
+        } else {
+          const obj = getScene()[group];
+          if (key === 'height' && group === 'image' && el.value.trim() === '') obj[key] = null;
+          else if (['x','y','z','width','height','opacity','fontSize','lineHeight','durationMs'].includes(key)) obj[key] = num(el.value, obj[key] ?? 0);
+          else obj[key] = el.value;
+        }
+        renderPreview();
+      }
+
+      function percentX(x) { return (0.5 + num(x, 0) / Math.max(0.1, num(config.target.width, 1))) * 100; }
+      function percentY(y) { return (0.5 - num(y, 0) / Math.max(0.1, num(config.target.height, 1.414))) * 100; }
+      function makePositionItem(kind, object, scene) {
+        const item = document.createElement('div');
+        item.className = `preview-item ${kind === 'image' ? 'preview-art' : 'preview-text'}`;
+        item.dataset.kind = kind;
+        item.style.left = `${percentX(object.x)}%`;
+        item.style.top = `${percentY(object.y)}%`;
+        item.style.width = `${Math.max(1, num(object.width, kind === 'image' ? 0.82 : 0.88) / Math.max(.1, config.target.width) * 100)}%`;
+        if (kind === 'text') {
+          item.style.height = `${Math.max(2, num(object.height, .32) / Math.max(.1, config.target.height) * 100)}%`;
+          item.style.color = object.color || '#FFFFFF';
+          item.style.fontFamily = object.fontFamily || 'Arial';
+          item.style.fontWeight = object.fontWeight || 'normal';
+          item.style.fontSize = `${Math.max(7, num(object.fontSize, 58) / 1024 * Math.max(20, stage.clientWidth * num(object.width, .88) / Math.max(.1, config.target.width)))}px`;
+          item.style.lineHeight = String(num(object.lineHeight, 1.2));
+          item.style.textAlign = object.align || 'center';
+          item.style.opacity = String(Math.max(0, Math.min(1, num(object.opacity, 1))));
+          item.style.alignItems = object.verticalAlign === 'top' ? 'flex-start' : object.verticalAlign === 'bottom' ? 'flex-end' : 'center';
+          item.textContent = object.content || 'Texto de escena';
+          if (!object.content) { item.style.color = '#808994'; item.style.fontSize = '11px'; item.style.border = '1px dashed #bd8b45'; }
+        } else {
+          item.style.opacity = String(Math.max(0, Math.min(1, num(object.opacity, 1))));
+          let guessedHeight = num(object.height, null);
+          if (guessedHeight === null) guessedHeight = num(object.width, .82) * .72;
+          item.style.height = `${Math.max(2, guessedHeight / Math.max(.1, config.target.height) * 100)}%`;
+          const img = document.createElement('img');
+          img.alt = '';
+          img.draggable = false;
+          img.src = object.src || '';
+          img.addEventListener('load', () => {
+            if (config && selectedIndex === Number(stage.dataset.sceneIndex)) {
+              if (object.height === null || object.height === undefined || object.height === '') item.style.height = `${(num(object.width, .82) * img.naturalHeight / Math.max(1, img.naturalWidth)) / Math.max(.1, config.target.height) * 100}%`;
+            }
+          });
+          img.addEventListener('error', () => {
+            img.remove();
+            item.textContent = `${(object.src || `scene-0${selectedIndex+1}.png`).split('/').pop()}\nPNG pendiente`;
+            item.style.color = '#476889';
+            item.style.fontSize = '10px';
+          });
+          item.appendChild(img);
+        }
+        installDrag(item, kind);
+        return item;
+      }
+
+      function installDrag(item, kind) {
+        item.addEventListener('pointerdown', (event) => {
+          if (!config || event.button !== 0) return;
+          event.preventDefault();
+          if (dragCleanup) dragCleanup();
+          const sceneAtStart = selectedIndex;
+          const object = getScene()[kind];
+          const rect = stage.getBoundingClientRect();
+          item.setPointerCapture?.(event.pointerId);
+          const move = (moveEvent) => {
+            if (selectedIndex !== sceneAtStart || !config) return;
+            const currentRect = stage.getBoundingClientRect();
+            const xRatio = Math.max(0, Math.min(1, (moveEvent.clientX - currentRect.left) / currentRect.width));
+            const yRatio = Math.max(0, Math.min(1, (moveEvent.clientY - currentRect.top) / currentRect.height));
+            object.x = Number(((xRatio - 0.5) * num(config.target.width, 1)).toFixed(3));
+            object.y = Number(((0.5 - yRatio) * num(config.target.height, 1.414)).toFixed(3));
+            setInputValue(kind, 'x', object.x);
+            setInputValue(kind, 'y', object.y);
+            item.style.left = `${xRatio * 100}%`;
+            item.style.top = `${yRatio * 100}%`;
+          };
+          const end = () => cleanup();
+          const cleanup = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', end);
+            window.removeEventListener('pointercancel', end);
+            if (dragCleanup === cleanup) dragCleanup = null;
+          };
+          dragCleanup = cleanup;
+          window.addEventListener('pointermove', move);
+          window.addEventListener('pointerup', end, { once: true });
+          window.addEventListener('pointercancel', end, { once: true });
+        });
+      }
+
+      function renderPreview() {
+        if (!config) return;
+        stage.dataset.sceneIndex = String(selectedIndex);
+        stage.style.aspectRatio = `${Math.max(.1, num(config.target.width,1))} / ${Math.max(.1, num(config.target.height,1.414))}`;
+        stage.innerHTML = '';
+        const scene = getScene();
+        stage.appendChild(makePositionItem('image', scene.image, scene));
+        stage.appendChild(makePositionItem('text', scene.text, scene));
+      }
+
+      function downloadConfig() {
+        if (!config) return;
+        const blob = new Blob([JSON.stringify(config, null, 2) + '\n'], { type:'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'config.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        loadState.textContent = 'Descarga iniciada. Reemplazá el config.json del proyecto por el archivo descargado.';
+      }
+
+      fileInput.addEventListener('change', () => loadFile(fileInput.files && fileInput.files[0]));
+      scenePicker.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-scene]');
+        if (!button || !config) return;
+        if (dragCleanup) dragCleanup();
+        selectedIndex = Number(button.dataset.scene);
+        renderControls();
+        renderPreview();
+      });
+      document.querySelectorAll('[data-group]').forEach((el) => {
+        el.addEventListener('input', updateFromInputs);
+        el.addEventListener('change', updateFromInputs);
+      });
+      downloadButton.addEventListener('click', downloadConfig);
+      document.querySelector('#add-custom-font').addEventListener('click', () => {
+        if (!config) {
+          loadState.textContent = 'Primero abrí config.json.';
+          return;
+        }
+        const family = document.querySelector('#custom-font-family').value.trim();
+        const src = document.querySelector('#custom-font-src').value.trim();
+        const weight = document.querySelector('#custom-font-weight').value;
+        const style = document.querySelector('#custom-font-style').value;
+        if (!family || !src) {
+          loadState.textContent = 'Indicá el nombre de la fuente y la ruta de su archivo.';
+          return;
+        }
+        config.project = config.project || {};
+        config.project.fonts = Array.isArray(config.project.fonts) ? config.project.fonts : [];
+        const existing = config.project.fonts.findIndex((font) => font.family.toLowerCase() === family.toLowerCase());
+        const entry = { family, src, weight, style };
+        if (existing >= 0) config.project.fonts[existing] = entry;
+        else config.project.fonts.push(entry);
+        setInputValue('text', 'fontFamily', family);
+        getScene().text.fontFamily = family;
+        renderFontManager();
+        renderPreview();
+        loadState.textContent = `Fuente “${family}” agregada a la configuración. Acordate de colocar el archivo en la ruta indicada y descargar config.json.`;
+      });
+      reloadButton.addEventListener('click', () => {
+        if (!originalText) return;
+        try {
+          config = JSON.parse(originalText);
+          renderControls();
+          renderFontManager();
+          renderPreview();
+          loadState.textContent = 'Se descartaron los cambios de esta sesión.';
+        } catch (error) {
+          loadState.textContent = `No se pudieron descartar los cambios: ${error.message}`;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

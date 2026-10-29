@@ -1,0 +1,10 @@
+ARCHIVO DE RECONOCIMIENTO DEL AFICHE
+
+Copiá aquí el archivo .mind compilado con MindAR a partir del afiche final y renombralo exactamente:
+
+poster.mind
+
+Ruta final esperada: targets/poster.mind
+
+No pongas aquí el PNG/JPG del afiche. El archivo .mind es el patrón compilado que usa MindAR para reconocerlo.
+Este proyecto no incluye un .mind de prueba porque debe corresponder a tu afiche real.
