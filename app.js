@@ -172,7 +172,7 @@
       }
       if (mode === 'slide-up') object.position.y = pos.y - 0.16 * (1 - eased);
       if (mode === 'float') {
-        const angle = ((now - startedAt) / 1500) * Math.PI * 2;
+        const angle = ((now - startedAt) / time) * Math.PI * 2;
         object.position.y = pos.y + Math.sin(angle) * 0.045;
       }
 
@@ -305,6 +305,13 @@
         lines.push(line);
       });
 
+      // Todos los textos de la experiencia son blancos con un contorno negro fino,
+      // para mantener el contraste sobre imágenes y fondos reales de la cámara.
+      context.fillStyle = '#FFFFFF';
+      context.strokeStyle = '#000000';
+      context.lineWidth = Math.max(2, scene.text.fontSize * 0.055);
+      context.lineJoin = 'round';
+
       const lineStep = scene.text.fontSize * scene.text.lineHeight;
       const totalTextHeight = Math.max(lineStep, lines.length * lineStep);
       let y = padding;
@@ -312,7 +319,11 @@
       if (scene.text.verticalAlign === 'bottom') y = Math.max(padding, canvas.height - totalTextHeight - padding);
       const x = scene.text.align === 'left' ? padding : scene.text.align === 'right' ? canvas.width - padding : canvas.width / 2;
       lines.forEach((line, lineIndex) => {
-        if (y + lineIndex * lineStep <= canvas.height - padding) context.fillText(line, x, y + lineIndex * lineStep, maxLineWidth);
+        if (y + lineIndex * lineStep <= canvas.height - padding) {
+          const lineY = y + lineIndex * lineStep;
+          context.strokeText(line, x, lineY, maxLineWidth);
+          context.fillText(line, x, lineY, maxLineWidth);
+        }
       });
       context.globalAlpha = 1;
 
@@ -380,6 +391,17 @@
       renderScene(0);
 
       await waitForScene();
+      // La cámara debe verse a través del canvas WebGL. alpha:true por sí solo no
+      // siempre basta en todos los móviles: forzamos el canal alfa del renderer.
+      const makeRendererTransparent = () => {
+        const renderer = sceneEl.renderer;
+        if (!renderer) return;
+        renderer.setClearColor(0x000000, 0);
+        renderer.setClearAlpha(0);
+        if (renderer.domElement) renderer.domElement.style.background = 'transparent';
+      };
+      makeRendererTransparent();
+      sceneEl.addEventListener('renderstart', makeRendererTransparent, { once: true });
       try {
         await validateTargetFile();
       } catch (error) {
