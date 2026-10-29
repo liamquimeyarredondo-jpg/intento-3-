@@ -53,6 +53,29 @@ a-scene .a-canvas { position: absolute !important; inset: 0 !important; z-index:
   backdrop-filter: blur(2px);
 }
 
+.restart-button {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  bottom: calc(58px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 36px);
+  padding: 12px 20px;
+  border: 1px solid rgba(255,255,255,0.72);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.76);
+  color: #fff;
+  font: 600 15px/1.2 Arial, Helvetica, sans-serif;
+  letter-spacing: 0.01em;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.28);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.restart-button:active { background: rgba(38,38,38,0.88); }
+.restart-button[hidden] { display: none !important; }
+
 .setup-notice {
   position: fixed;
   z-index: 40;
