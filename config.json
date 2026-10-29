@@ -29,7 +29,7 @@
         "height": null,
         "opacity": 1,
         "animation": "float",
-        "durationMs": 1500
+        "durationMs": 6000
       },
       "text": {
         "content": "En 1890, José Nicolás Puccio mandó construir una enorme mansión en el pueblo de Alberdi. Rodeada de jardines y cerca del río Paraná, la casa tenía grandes escaleras, salones elegantes y una torre desde la que se podía contemplar el paisaje.",
@@ -41,13 +41,13 @@
         "fontFamily": "Arial",
         "fontSize": 51,
         "fontWeight": "normal",
-        "color": "#f5f5f5",
+        "color": "#FFFFFF",
         "align": "center",
         "verticalAlign": "middle",
         "lineHeight": 1.2,
         "opacity": 1,
         "animation": "float",
-        "durationMs": 1500
+        "durationMs": 6000
       }
     },
     {
@@ -61,8 +61,8 @@
         "width": 1.03,
         "height": null,
         "opacity": 1,
-        "animation": "slide-up",
-        "durationMs": 2000
+        "animation": "float",
+        "durationMs": 6000
       },
       "text": {
         "content": "Con los años, la mansión pasó a otras familias hasta llegar a Alfredo Rouillón, quien la llamó Villa Hortensia en honor a su esposa, María Hortensia. Allí se reunían familiares y visitantes, y sus habitaciones se llenaban de voces, encuentros y celebraciones.",
@@ -74,13 +74,13 @@
         "fontFamily": "Arial",
         "fontSize": 49,
         "fontWeight": "normal",
-        "color": "#f5f5f5",
+        "color": "#FFFFFF",
         "align": "center",
         "verticalAlign": "middle",
         "lineHeight": 1.2,
         "opacity": 1,
-        "animation": "none",
-        "durationMs": 2000
+        "animation": "float",
+        "durationMs": 6000
       }
     },
     {
@@ -94,8 +94,8 @@
         "width": 1.01,
         "height": null,
         "opacity": 1,
-        "animation": "fade",
-        "durationMs": 700
+        "animation": "float",
+        "durationMs": 6000
       },
       "text": {
         "content": "Pero el tiempo pasó y la casa comenzó a deteriorarse. Cuando quedó abandonada, surgieron historias extrañas: algunos hablaban de puertas que se cerraban solas, ruidos inexplicables y figuras que aparecían en los pasillos. Así nació la leyenda del fantasma de Villa Hortensia.",
@@ -107,13 +107,13 @@
         "fontFamily": "Arial",
         "fontSize": 53,
         "fontWeight": "normal",
-        "color": "#000000",
+        "color": "#FFFFFF",
         "align": "center",
         "verticalAlign": "middle",
         "lineHeight": 1.2,
         "opacity": 1,
-        "animation": "fade",
-        "durationMs": 700
+        "animation": "float",
+        "durationMs": 6000
       }
     },
     {
@@ -127,8 +127,8 @@
         "width": 1.07,
         "height": null,
         "opacity": 1,
-        "animation": "pop",
-        "durationMs": 200
+        "animation": "float",
+        "durationMs": 6000
       },
       "text": {
         "content": "Algunos relatos aseguraban que, al caer la noche, todavía se sentía una presencia entre las habitaciones. ¿Serían los espíritus de quienes habían vivido allí o simplemente los ecos de una casa cargada de recuerdos? Nadie pudo demostrarlo, y el misterio siguió creciendo entre los vecinos.",
@@ -140,13 +140,13 @@
         "fontFamily": "Arial",
         "fontSize": 51,
         "fontWeight": "normal",
-        "color": "#616161",
+        "color": "#FFFFFF",
         "align": "center",
         "verticalAlign": "middle",
         "lineHeight": 1.2,
         "opacity": 1,
-        "animation": "pop",
-        "durationMs": 200
+        "animation": "float",
+        "durationMs": 6000
       }
     },
     {
@@ -160,8 +160,8 @@
         "width": 1.04,
         "height": null,
         "opacity": 1,
-        "animation": "none",
-        "durationMs": 2700
+        "animation": "float",
+        "durationMs": 6000
       },
       "text": {
         "content": "En 1996, la Municipalidad de Rosario compró la casona y la restauró. Al año siguiente abrió allí el Centro Municipal de Distrito Norte. Hoy, Villa Hortensia sigue en pie, guardando su historia entre paredes centenarias. Y quién sabe… quizá, cuando cae la noche, el viejo fantasma todavía recorra sus pasillos.",
@@ -173,13 +173,13 @@
         "fontFamily": "Arial",
         "fontSize": 49,
         "fontWeight": "normal",
-        "color": "#0084ff",
+        "color": "#FFFFFF",
         "align": "center",
         "verticalAlign": "middle",
         "lineHeight": 1.2,
         "opacity": 1,
-        "animation": "none",
-        "durationMs": 2700
+        "animation": "float",
+        "durationMs": 6000
       }
     }
   ]
